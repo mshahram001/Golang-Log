@@ -1,0 +1,81 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: go-div
+spec:
+  inputs:
+    params:
+    - name: firstnum
+      description: "The first number to divide"
+      type: string
+    - name: secondnum
+      description: "The second number to divide"
+      type: string
+  outputs:
+    resources:
+    - name: output
+      type: git
+      targetPath: /workspace/output
+  steps:
+  - name: build
+    image: golang:1.16
+    command:
+    - go
+    - build
+    args:
+    - -o
+    - /workspace/output/div
+    - .
+    workingDir: /workspace/source
+  - name: test
+    image: golang:1.16
+    command:
+    - go
+    - test
+    - ./...
+    workingDir: /workspace/source
+  - name: run
+    image: golang:1.16
+    command:
+    - /workspace/output/div
+    args:
+    - $(inputs.params.firstnum)
+    - $(inputs.params.secondnum)
+    workingDir: /workspace/source
+  - name: publish
+    image: alpine/git
+    command:
+    - git
+    - clone
+    - --depth=1
+    - --branch=main
+    - https://github.com/<username>/<repository>.git
+    - /workspace/output/repo
+  - name: copy
+    image: alpine/git
+    command:
+    - cp
+    - /workspace/output/div
+    - /workspace/output/repo/div
+    workingDir: /workspace
+  - name: push
+    image: alpine/git
+    command:
+    - git
+    - add
+    - .
+    workingDir: /workspace/output/repo
+  - name: commit
+    image: alpine/git
+    command:
+    - git
+    - commit
+    - -m
+    - "Update result"
+    workingDir: /workspace/output/repo
+  - name: push
+    image: alpine/git
+    command:
+    - git
+    - push
+    workingDir: /workspace/output/repo
